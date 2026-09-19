@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Cafeteria</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 30px auto; }
+    button { margin-left: 8px; }
+    li { margin: 6px 0; }
+  </style>
+</head>
+<body>
+  <h1>Cafeteria</h1>
+
+  <div id="loginBox">
+    <p>Quick fill:
+      <button onclick="fill('alice')">alice</button>
+      <button onclick="fill('bob')">bob</button>
+    </p>
+    <input id="nameInput" placeholder="name">
+    <input id="passwordInput" placeholder="password" type="password">
+    <button onclick="login()">Login</button>
+    <span id="error" style="color:red"></span>
+  </div>
+
+  <div id="app" style="display:none">
+    <p>Logged in as <b id="who"></b> <span id="live">(connecting...)</span></p>
+    <h2>Menu</h2>
+    <ul id="menu"></ul>
+    <h2>Orders (live)</h2>
+    <ul id="orders"></ul>
+  </div>
+
+<script>
+const USER = "http://localhost:8001", MENU = "http://localhost:8002",
+      ORDER = "http://localhost:8003", NOTIFY = "ws://localhost:8005/ws";
+let me = "";
+const orders = {};  // id -> order
+
+function fill(user) {  // demo shortcut: autofills the form
+  nameInput.value = user;
+  passwordInput.value = "1234";
+}
+
+async function login() {
+  const r = await fetch(USER + "/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: nameInput.value, password: passwordInput.value }),
+  });
+  if (!r.ok) { error.textContent = "wrong name or password"; return; }
+  me = nameInput.value;
+  loginBox.style.display = "none";
+  app.style.display = "block";
+  who.textContent = me;
+  loadMenu();
+  loadOrders();
+  connectWebSocket();
+}
+
+async function loadMenu() {
+  const items = await (await fetch(MENU + "/menu")).json();
+  menu.innerHTML = items.map(i =>
+    `<li>${i.name} - $${i.price} <button onclick="order(${i.id})">Order</button></li>`).join("");
+}
+
+async function order(itemId) {
+  await fetch(ORDER + "/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user: me, item_id: itemId }),
+  });
+}
+
+async function ready(id) { await fetch(`${ORDER}/orders/${id}/ready`, { method: "POST" }); }
+
+async function loadOrders() {
+  (await (await fetch(ORDER + "/orders")).json()).forEach(o => orders[o.id] = o);
+  showOrders();
+}
+
+function showOrders() {
+  document.getElementById("orders").innerHTML = Object.values(orders).map(o =>
+    `<li>#${o.id} ${o.item} (${o.user}) - <b>${o.status}</b>` +
+    (o.status === "preparing" ? `<button onclick="ready(${o.id})">Mark ready</button>` : "") + `</li>`).join("");
+}
+
+function connectWebSocket() {
+  const ws = new WebSocket(NOTIFY);
+  ws.onopen = () => live.textContent = "(live)";
+  ws.onmessage = (msg) => {
+    const e = JSON.parse(msg.data);
+    orders[e.order.id] = e.order;  // new order or status change
+    showOrders();
+  };
+  ws.onclose = () => live.textContent = "(disconnected)";
+}
+</script>
+</body>
+</html>
