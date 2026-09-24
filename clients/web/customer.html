@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Cinema — Customer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="container">
+  <h1>🎬 Cinema Booking</h1>
+  <p class="subtitle">Customer</p>
+
+  <div id="loginCard" class="card">
+    <h2>Login</h2>
+    <div class="row">
+      <span class="muted">Quick fill:</span>
+      <button class="secondary" onclick="fill('alice')">alice</button>
+      <button class="secondary" onclick="fill('bob')">bob</button>
+    </div>
+    <div class="row">
+      <input id="nameInput" placeholder="username">
+      <button onclick="login()">Login</button>
+    </div>
+    <p id="error" class="error"></p>
+  </div>
+
+  <div id="app" class="hidden">
+    <p><span id="liveDot" class="live-dot"></span>Logged in as <b id="who"></b></p>
+
+    <div class="card">
+      <h2>Movies &amp; Showtimes</h2>
+      <div id="moviesList"></div>
+    </div>
+
+    <div class="card">
+      <h2>My Bookings</h2>
+      <ul id="myTickets"><li class="muted">No bookings yet</li></ul>
+    </div>
+
+    <div class="card">
+      <h2>Live Activity</h2>
+      <ul id="activity"><li class="muted">Waiting for events...</li></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+const GATEWAY = "http://localhost:8000";
+const NOTIFY = "ws://localhost:8004/ws";
+let me = "";
+
+function fill(user) { nameInput.value = user; }  // demo shortcut
+
+async function login() {
+  const r = await fetch(`${GATEWAY}/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: nameInput.value }),
+  });
+  if (!r.ok) { error.textContent = "login failed"; return; }
+  me = nameInput.value;
+  loginCard.classList.add("hidden");
+  app.classList.remove("hidden");
+  who.textContent = me;
+  loadMovies();
+  connectWebSocket();
+}
+
+async function loadMovies() {
+  const movies = await (await fetch(`${GATEWAY}/movies`)).json();
+  moviesList.innerHTML = movies.map(m => `
+    <div class="movie">
+      <div class="title">${m.title}</div>
+      ${m.showtimes.map(s => `
+        <div class="row showtime">
+          <span style="min-width:50px">${s.time}</span>
+          <input id="seat-${s.id}" placeholder="seat e.g. C7" style="width:110px">
+          <button onclick="book(${s.id})">Book</button>
+        </div>
+        <div id="msg-${s.id}" class="error"></div>
+      `).join("")}
+    </div>`).join("") || `<p class="muted">No movies yet</p>`;
+}
+
+async function book(showtimeId) {
+  const seatInput = document.getElementById(`seat-${showtimeId}`);
+  const msg = document.getElementById(`msg-${showtimeId}`);
+  const seat = seatInput.value.trim();
+  if (!seat) { msg.textContent = "enter a seat first"; return; }
+  const r = await fetch(`${GATEWAY}/bookings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: me, showtime_id: showtimeId, seat }),
+  });
+  const data = await r.json();
+  if (!r.ok) { msg.textContent = data.detail || "booking failed"; return; }
+  msg.textContent = "";
+  seatInput.value = "";
+  if (myTickets.querySelector(".muted")) myTickets.innerHTML = "";
+  const li = document.createElement("li");
+  li.innerHTML = `<span>#${data.id} seat ${data.seat}</span><span class="status">booked</span>`;
+  myTickets.prepend(li);
+}
+
+function connectWebSocket() {
+  const ws = new WebSocket(NOTIFY);
+  ws.onopen = () => liveDot.classList.add("on");
+  ws.onclose = () => liveDot.classList.remove("on");
+  ws.onmessage = (msg) => {
+    const e = JSON.parse(msg.data);
+    if (activity.querySelector(".muted")) activity.innerHTML = "";
+    const taken = e.event === "seat_taken";
+    const li = document.createElement("li");
+    li.innerHTML = `<span>seat ${e.seat} (showtime ${e.showtime_id})</span>` +
+      `<span class="status ${taken ? "" : "freed"}">${taken ? "booked" : "freed"}</span>`;
+    activity.prepend(li);
+    while (activity.children.length > 8) activity.removeChild(activity.lastChild);
+  };
+}
+</script>
+</body>
+</html>

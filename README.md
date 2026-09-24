@@ -51,39 +51,58 @@ own `/docs` on its port.
 6. Notification pushes `{"event": "seat_taken", "seat": "C7", ...}` over
    WebSocket to every connected client — customer and staff alike.
 
+## Clients
+
+There are two kinds of client, on purpose: a CLI and a web page for each
+role. Either pair is enough to demo the whole flow.
+
+- `clients/cli/customer_client.py`, `clients/cli/staff_client.py` — terminal apps.
+- `clients/web/customer.html`, `clients/web/staff.html` — plain HTML/CSS/JS,
+  no framework, no build step. Minimal styling on purpose (`clients/web/styles.css`).
+
 ## Run
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-./run_all.sh                                     # terminal 1: starts the 5 services
+./run_all.sh                                          # terminal 1: starts the 5 services
 ```
 
+**CLI:**
 ```bash
-.venv/bin/python clients/customer_client.py       # terminal 2 (quick-login: 1 or 2)
+.venv/bin/python clients/cli/customer_client.py        # terminal 2 (quick-login: 1 or 2)
+.venv/bin/python clients/cli/staff_client.py           # terminal 3 (quick-login: 1 or 2)
 ```
 
+**Web:**
 ```bash
-.venv/bin/python clients/staff_client.py          # terminal 3 (quick-login: 1 or 2)
+cd clients/web && python3 -m http.server 8080          # then open:
+# http://localhost:8080/customer.html
+# http://localhost:8080/staff.html
 ```
 
 Movie service starts pre-seeded with **Dune** (showtime 1 at 18:00, showtime 2
 at 21:00) so there's something to book right away.
 
-**Customer commands:** `movies`, `book <showtime_id> <seat>`, `quit`
-**Staff commands:** `movies`, `addmovie <title>`, `addshowtime <movie_id> <time>`,
+**CLI customer commands:** `movies`, `book <showtime_id> <seat>`, `quit`
+**CLI staff commands:** `movies`, `addmovie <title>`, `addshowtime <movie_id> <time>`,
 `tickets`, `cancel <ticket_id>`, `quit`
 
 ## Demo script (for the video)
 
 1. Start the services. Show `http://localhost:8000/docs` (the gateway).
-2. Open the customer client (quick-login `1` for alice) and the staff client
-   (quick-login `1` for staff1) side by side.
-3. Customer: `movies`, then `book 1 C7`. The ticket is created.
-4. Staff: `tickets` — the new booking is there. Try `cancel 1` and the
-   customer's terminal prints `[LIVE] seat_freed ...` immediately.
-5. Customer: `book 1 C7` again to show it works, then try to book the same
-   seat twice from two terminals to show the **409 Conflict**.
+2. Serve the web clients and open `customer.html` and `staff.html` side by
+   side. Click the **alice** quick-fill button on one, **staff1** on the
+   other, and press Login on each.
+3. Customer: type a seat (e.g. `C7`) on the 18:00 showtime and click **Book**.
+   The ticket appears instantly in the staff page's Tickets and Live Activity
+   — no refresh.
+4. Staff: click **Cancel** on that ticket. The customer page shows
+   "seat C7 freed" live.
+5. Book the same seat twice from two browser tabs to show the **409
+   Conflict** (the second click shows an inline error).
+6. Optionally repeat the same flow with the CLI clients to show the second
+   client type.
 
 ## Defense cheat-sheet
 
