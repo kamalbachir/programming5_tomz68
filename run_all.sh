@@ -9,11 +9,11 @@ start() {  # start <folder> <port>
   (cd services/$1 && ../../$PY -m uvicorn main:app --port $2) &
 }
 
-start user_service 8001
-start menu_service 8002
-start order_service 8003
-start payment_service 8004
-start notification_service 8005
+start gateway 8000
+start auth_service 8001
+start movie_service 8002
+start booking_service 8003
+start notification_service 8004
 
-echo "All services running. API docs: http://localhost:8001/docs ... 8005/docs"
+echo "All services running. Gateway: http://localhost:8000/docs"
 wait
