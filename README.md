@@ -85,9 +85,13 @@ python3 -m venv .venv
 
 **Web:**
 ```bash
-cd clients/web && python3 -m http.server 8080          # then open:
+cd clients/web && python3 serve.py                     # then open:
 # http://localhost:8080/index.html   <- start here, pick Customer or Staff
 ```
+
+`serve.py` is a plain static file server (same idea as `python3 -m http.server`)
+that also disables browser caching, so an edited page always shows up on the
+next reload instead of a stale cached copy.
 
 Movie service starts pre-seeded with **Dune** (showtime 1 at 18:00, showtime 2
 at 21:00) so there's something to book right away.

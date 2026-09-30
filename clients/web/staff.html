@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <title>Cinema — Staff</title>
-  <link rel="stylesheet" href="styles.css?v=2">
+  <script>document.write('<link rel="stylesheet" href="styles.css?t=' + Date.now() + '">');</script>
 </head>
 <body>
 <div class="container">
   <h1>🎬 Cinema Booking</h1>
-  <p class="subtitle"><a class="back-link" href="index.html">← Home</a> · Staff</p>
+  <p class="subtitle"><a class="back-link" id="homeLink" href="index.html">← Home</a> · Staff</p>
 
   <div id="loginCard" class="card">
     <h2>Login</h2>
@@ -77,16 +77,27 @@ let me = "";
 let currentShowtimeId = null;
 let seatToTicket = {};  // seat -> ticket id, for the currently viewed showtime
 
+homeLink.href = "index.html?t=" + Date.now();  // avoid a stale cached index page
+
 function fill(user) { nameInput.value = user; }  // demo shortcut
 
 async function login() {
-  const r = await fetch(`${GATEWAY}/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: nameInput.value }),
-  });
+  error.textContent = "";
+  const name = nameInput.value.trim();
+  if (!name) { error.textContent = "enter a username first"; return; }
+  let r;
+  try {
+    r = await fetch(`${GATEWAY}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: name }),
+    });
+  } catch (err) {
+    error.textContent = "can't reach the server — is run_all.sh running?";
+    return;
+  }
   if (!r.ok) { error.textContent = "login failed"; return; }
-  me = nameInput.value;
+  me = name;
   loginCard.classList.add("hidden");
   app.classList.remove("hidden");
   who.textContent = me;

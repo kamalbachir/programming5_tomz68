@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Cinema Booking</title>
-  <link rel="stylesheet" href="styles.css?v=2">
+  <script>document.write('<link rel="stylesheet" href="styles.css?t=' + Date.now() + '">');</script>
 </head>
 <body>
 <div class="container">
@@ -26,5 +26,14 @@
     </span>
   </a>
 </div>
+
+<script>
+// Browsers can hold on to an old cached copy of customer.html/staff.html
+// even after the files change. Adding a fresh, unique query string forces
+// a real reload every time, instead of a stale cached page.
+document.querySelectorAll(".role-card").forEach(a => {
+  a.href = a.getAttribute("href").split("?")[0] + "?t=" + Date.now();
+});
+</script>
 </body>
 </html>
