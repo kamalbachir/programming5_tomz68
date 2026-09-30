@@ -57,8 +57,17 @@ There are two kinds of client, on purpose: a CLI and a web page for each
 role. Either pair is enough to demo the whole flow.
 
 - `clients/cli/customer_client.py`, `clients/cli/staff_client.py` — terminal apps.
-- `clients/web/customer.html`, `clients/web/staff.html` — plain HTML/CSS/JS,
-  no framework, no build step. Minimal styling on purpose (`clients/web/styles.css`).
+- `clients/web/index.html` — a landing page: choose **Customer** or **Staff**.
+  `clients/web/customer.html` and `clients/web/staff.html` are the two roles.
+  Plain HTML/CSS/JS, no framework, no build step. Minimal styling on purpose
+  (`clients/web/styles.css`).
+
+The web customer page shows a **seat map** (rows A–E, seats 1–8) under a
+"SCREEN" bar: grey buttons are free seats, clicking one books it and turns
+it red. That red/grey state is pushed live over the WebSocket, so a second
+browser tab (or the staff page) sees a seat turn red the instant someone
+else books it — no refresh. The staff page shows the same seat map; clicking
+a red seat cancels that ticket.
 
 ## Run
 
@@ -77,8 +86,7 @@ python3 -m venv .venv
 **Web:**
 ```bash
 cd clients/web && python3 -m http.server 8080          # then open:
-# http://localhost:8080/customer.html
-# http://localhost:8080/staff.html
+# http://localhost:8080/index.html   <- start here, pick Customer or Staff
 ```
 
 Movie service starts pre-seeded with **Dune** (showtime 1 at 18:00, showtime 2
@@ -91,16 +99,17 @@ at 21:00) so there's something to book right away.
 ## Demo script (for the video)
 
 1. Start the services. Show `http://localhost:8000/docs` (the gateway).
-2. Serve the web clients and open `customer.html` and `staff.html` side by
-   side. Click the **alice** quick-fill button on one, **staff1** on the
-   other, and press Login on each.
-3. Customer: type a seat (e.g. `C7`) on the 18:00 showtime and click **Book**.
-   The ticket appears instantly in the staff page's Tickets and Live Activity
-   — no refresh.
-4. Staff: click **Cancel** on that ticket. The customer page shows
-   "seat C7 freed" live.
-5. Book the same seat twice from two browser tabs to show the **409
-   Conflict** (the second click shows an inline error).
+2. Serve the web clients and open `index.html` in two tabs. In one, click
+   **Customer** and quick-fill **alice**; in the other, click **Staff** and
+   quick-fill **staff1**.
+3. Customer: click a grey seat, e.g. **C7**, on the seat map. It turns red
+   immediately. The staff tab's seat map, Tickets and Live Activity all
+   update to show it — no refresh.
+4. Staff: click that same red seat to cancel it. The customer tab's seat
+   map turns it back to grey live.
+5. Open a third tab as **bob** and click the same seat alice just booked —
+   the seat map already shows it red and the click is blocked, demonstrating
+   the **409 Conflict** the booking service returns underneath.
 6. Optionally repeat the same flow with the CLI clients to show the second
    client type.
 

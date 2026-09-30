@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <title>Cinema — Staff</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 <div class="container">
   <h1>🎬 Cinema Booking</h1>
-  <p class="subtitle">Staff</p>
+  <p class="subtitle"><a class="back-link" href="index.html">← Home</a> · Staff</p>
 
   <div id="loginCard" class="card">
     <h2>Login</h2>
@@ -45,6 +45,17 @@
       </div>
     </div>
 
+    <div id="seatMapCard" class="card hidden">
+      <h2>Seat Map — click a taken seat to cancel it</h2>
+      <div class="screen-label">SCREEN</div>
+      <div class="screen-bar"></div>
+      <div id="seatGrid"></div>
+      <div class="legend">
+        <span><span class="dot grey"></span>Available</span>
+        <span><span class="dot red"></span>Taken</span>
+      </div>
+    </div>
+
     <div class="card">
       <h2>Tickets</h2>
       <ul id="tickets"><li class="muted">No tickets yet</li></ul>
@@ -60,7 +71,11 @@
 <script>
 const GATEWAY = "http://localhost:8000";
 const NOTIFY = "ws://localhost:8004/ws";
+const ROWS = ["A", "B", "C", "D", "E"];
+const COLS = [1, 2, 3, 4, 5, 6, 7, 8];
 let me = "";
+let currentShowtimeId = null;
+let seatToTicket = {};  // seat -> ticket id, for the currently viewed showtime
 
 function fill(user) { nameInput.value = user; }  // demo shortcut
 
@@ -75,7 +90,7 @@ async function login() {
   loginCard.classList.add("hidden");
   app.classList.remove("hidden");
   who.textContent = me;
-  loadMovies();
+  await loadMovies();
   loadTickets();
   connectWebSocket();
 }
@@ -85,9 +100,54 @@ async function loadMovies() {
   moviesList.innerHTML = movies.map(m => `
     <div class="movie">
       <div class="title">[${m.id}] ${m.title}</div>
-      ${m.showtimes.map(s => `<div class="showtime">showtime ${s.id}: ${s.time}</div>`).join("")}
+      <div class="row">
+        ${m.showtimes.map(s =>
+          `<button class="showtime-btn" id="st-${s.id}" onclick="selectShowtime(${s.id})">${s.time}</button>`
+        ).join("")}
+      </div>
     </div>`).join("") || `<p class="muted">No movies yet</p>`;
   movieSelect.innerHTML = movies.map(m => `<option value="${m.id}">${m.title}</option>`).join("");
+
+  if (currentShowtimeId === null && movies.length && movies[0].showtimes.length) {
+    await selectShowtime(movies[0].showtimes[0].id);
+  }
+}
+
+async function selectShowtime(showtimeId) {
+  currentShowtimeId = showtimeId;
+  document.querySelectorAll(".showtime-btn").forEach(b => b.classList.remove("selected"));
+  const btn = document.getElementById(`st-${showtimeId}`);
+  if (btn) btn.classList.add("selected");
+  seatMapCard.classList.remove("hidden");
+  await renderSeatGrid();
+}
+
+async function renderSeatGrid() {
+  const bookings = await (await fetch(`${GATEWAY}/bookings`)).json();
+  seatToTicket = {};
+  bookings.filter(t => t.showtime_id === currentShowtimeId).forEach(t => seatToTicket[t.seat] = t.id);
+  seatGrid.innerHTML = ROWS.map(row => `
+    <div class="seat-row">
+      <span class="row-label">${row}</span>
+      ${COLS.map(col => {
+        const seat = row + col;
+        const isTaken = seat in seatToTicket;
+        return `<button class="seat ${isTaken ? "taken" : ""}" data-seat="${seat}"
+                  onclick="seatClicked('${seat}')">${col}</button>`;
+      }).join("")}
+    </div>`).join("");
+}
+
+function markSeat(seat, taken) {
+  const btn = seatGrid.querySelector(`[data-seat="${seat}"]`);
+  if (!btn) return;
+  btn.classList.toggle("taken", taken);
+}
+
+async function seatClicked(seat) {
+  const ticketId = seatToTicket[seat];
+  if (!ticketId) return;  // empty seat: staff doesn't book on a customer's behalf
+  await cancelTicket(ticketId);
 }
 
 async function addMovie() {
@@ -131,8 +191,14 @@ function connectWebSocket() {
   ws.onclose = () => liveDot.classList.remove("on");
   ws.onmessage = (msg) => {
     const e = JSON.parse(msg.data);
-    if (activity.querySelector(".muted")) activity.innerHTML = "";
     const taken = e.event === "seat_taken";
+    if (e.showtime_id === currentShowtimeId) {
+      markSeat(e.seat, taken);
+      if (taken && e.ticket) seatToTicket[e.seat] = e.ticket.id;
+      else delete seatToTicket[e.seat];
+    }
+
+    if (activity.querySelector(".muted")) activity.innerHTML = "";
     const li = document.createElement("li");
     li.innerHTML = `<span>seat ${e.seat} (showtime ${e.showtime_id})</span>` +
       `<span class="status ${taken ? "" : "freed"}">${taken ? "booked" : "freed"}</span>`;

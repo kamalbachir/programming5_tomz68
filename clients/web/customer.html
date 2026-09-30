@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <title>Cinema — Customer</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 <div class="container">
   <h1>🎬 Cinema Booking</h1>
-  <p class="subtitle">Customer</p>
+  <p class="subtitle"><a class="back-link" href="index.html">← Home</a> · Customer</p>
 
   <div id="loginCard" class="card">
     <h2>Login</h2>
@@ -32,6 +32,18 @@
       <div id="moviesList"></div>
     </div>
 
+    <div id="seatMapCard" class="card hidden">
+      <h2 id="seatMapTitle">Pick a seat</h2>
+      <div class="screen-label">SCREEN</div>
+      <div class="screen-bar"></div>
+      <div id="seatGrid"></div>
+      <div class="legend">
+        <span><span class="dot grey"></span>Available</span>
+        <span><span class="dot red"></span>Taken</span>
+      </div>
+      <p id="seatMsg" class="error"></p>
+    </div>
+
     <div class="card">
       <h2>My Bookings</h2>
       <ul id="myTickets"><li class="muted">No bookings yet</li></ul>
@@ -47,7 +59,10 @@
 <script>
 const GATEWAY = "http://localhost:8000";
 const NOTIFY = "ws://localhost:8004/ws";
+const ROWS = ["A", "B", "C", "D", "E"];
+const COLS = [1, 2, 3, 4, 5, 6, 7, 8];
 let me = "";
+let currentShowtimeId = null;
 
 function fill(user) { nameInput.value = user; }  // demo shortcut
 
@@ -62,7 +77,7 @@ async function login() {
   loginCard.classList.add("hidden");
   app.classList.remove("hidden");
   who.textContent = me;
-  loadMovies();
+  await loadMovies();
   connectWebSocket();
 }
 
@@ -71,31 +86,61 @@ async function loadMovies() {
   moviesList.innerHTML = movies.map(m => `
     <div class="movie">
       <div class="title">${m.title}</div>
-      ${m.showtimes.map(s => `
-        <div class="row showtime">
-          <span style="min-width:50px">${s.time}</span>
-          <input id="seat-${s.id}" placeholder="seat e.g. C7" style="width:110px">
-          <button onclick="book(${s.id})">Book</button>
-        </div>
-        <div id="msg-${s.id}" class="error"></div>
-      `).join("")}
+      <div class="row">
+        ${m.showtimes.map(s =>
+          `<button class="showtime-btn" id="st-${s.id}" onclick="selectShowtime(${s.id})">${s.time}</button>`
+        ).join("")}
+      </div>
     </div>`).join("") || `<p class="muted">No movies yet</p>`;
+
+  // show a seat map right away so there's something to see
+  if (currentShowtimeId === null && movies.length && movies[0].showtimes.length) {
+    await selectShowtime(movies[0].showtimes[0].id);
+  }
 }
 
-async function book(showtimeId) {
-  const seatInput = document.getElementById(`seat-${showtimeId}`);
-  const msg = document.getElementById(`msg-${showtimeId}`);
-  const seat = seatInput.value.trim();
-  if (!seat) { msg.textContent = "enter a seat first"; return; }
+async function selectShowtime(showtimeId) {
+  currentShowtimeId = showtimeId;
+  document.querySelectorAll(".showtime-btn").forEach(b => b.classList.remove("selected"));
+  const btn = document.getElementById(`st-${showtimeId}`);
+  if (btn) btn.classList.add("selected");
+  seatMapCard.classList.remove("hidden");
+  seatMsg.textContent = "";
+  await renderSeatGrid();
+}
+
+async function renderSeatGrid() {
+  const bookings = await (await fetch(`${GATEWAY}/bookings`)).json();
+  const taken = new Set(bookings.filter(t => t.showtime_id === currentShowtimeId).map(t => t.seat));
+  seatGrid.innerHTML = ROWS.map(row => `
+    <div class="seat-row">
+      <span class="row-label">${row}</span>
+      ${COLS.map(col => {
+        const seat = row + col;
+        const isTaken = taken.has(seat);
+        return `<button class="seat ${isTaken ? "taken" : ""}" data-seat="${seat}"
+                  onclick="bookSeat('${seat}')" ${isTaken ? "disabled" : ""}>${col}</button>`;
+      }).join("")}
+    </div>`).join("");
+}
+
+function markSeat(seat, taken) {
+  const btn = seatGrid.querySelector(`[data-seat="${seat}"]`);
+  if (!btn) return;
+  btn.classList.toggle("taken", taken);
+  btn.disabled = taken;
+}
+
+async function bookSeat(seat) {
+  seatMsg.textContent = "";
   const r = await fetch(`${GATEWAY}/bookings`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: me, showtime_id: showtimeId, seat }),
+    body: JSON.stringify({ username: me, showtime_id: currentShowtimeId, seat }),
   });
   const data = await r.json();
-  if (!r.ok) { msg.textContent = data.detail || "booking failed"; return; }
-  msg.textContent = "";
-  seatInput.value = "";
+  if (!r.ok) { seatMsg.textContent = data.detail || "booking failed"; return; }
+  markSeat(seat, true);
   if (myTickets.querySelector(".muted")) myTickets.innerHTML = "";
   const li = document.createElement("li");
   li.innerHTML = `<span>#${data.id} seat ${data.seat}</span><span class="status">booked</span>`;
@@ -108,8 +153,10 @@ function connectWebSocket() {
   ws.onclose = () => liveDot.classList.remove("on");
   ws.onmessage = (msg) => {
     const e = JSON.parse(msg.data);
-    if (activity.querySelector(".muted")) activity.innerHTML = "";
     const taken = e.event === "seat_taken";
+    if (e.showtime_id === currentShowtimeId) markSeat(e.seat, taken);
+
+    if (activity.querySelector(".muted")) activity.innerHTML = "";
     const li = document.createElement("li");
     li.innerHTML = `<span>seat ${e.seat} (showtime ${e.showtime_id})</span>` +
       `<span class="status ${taken ? "" : "freed"}">${taken ? "booked" : "freed"}</span>`;

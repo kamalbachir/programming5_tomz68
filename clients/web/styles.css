@@ -93,3 +93,59 @@ li:last-child { border-bottom: none; }
 .error { color: var(--danger); font-size: 13px; margin: 6px 0 0; }
 .muted { color: var(--muted); font-size: 13px; }
 .hidden { display: none; }
+
+/* showtime picker */
+.showtime-btn {
+  background: #fff; color: var(--text); border: 1px solid var(--border);
+  padding: 6px 12px; font-size: 13px; border-radius: 6px;
+}
+.showtime-btn:hover { background: var(--bg); }
+.showtime-btn.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* seat map */
+.screen-label {
+  text-align: center; font-size: 11px; letter-spacing: .3em;
+  color: var(--muted); margin-bottom: 6px;
+}
+.screen-bar {
+  height: 10px; width: 85%; margin: 0 auto 22px;
+  background: linear-gradient(180deg, #ccd0ca, #f6f6f4);
+  border-radius: 50%;
+  box-shadow: 0 6px 10px -5px rgba(0, 0, 0, .18);
+}
+
+.seat-row { display: flex; justify-content: center; align-items: center; gap: 6px; margin-bottom: 6px; }
+.seat-row:last-child { margin-bottom: 0; }
+
+.row-label { width: 14px; font-size: 11px; color: var(--muted); text-align: center; }
+
+.seat {
+  width: 30px; height: 26px; padding: 0;
+  border-radius: 5px; background: #d7dad4; color: #565a51;
+  font-size: 10px; line-height: 26px;
+}
+.seat:hover:not(.taken) { background: #c4c8c0; }
+.seat.taken { background: var(--danger); color: #fff; cursor: not-allowed; }
+.seat.taken:hover { background: var(--danger); }
+
+.legend { display: flex; justify-content: center; gap: 18px; margin-top: 14px; font-size: 12px; color: var(--muted); }
+.legend .dot {
+  display: inline-block; width: 10px; height: 10px; border-radius: 3px;
+  margin-right: 5px; vertical-align: middle;
+}
+.legend .dot.grey { background: #d7dad4; }
+.legend .dot.red { background: var(--danger); }
+
+/* landing page */
+.role-card {
+  display: flex; align-items: center; gap: 16px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 18px; margin-bottom: 14px; text-decoration: none; color: var(--text);
+}
+.role-card:hover { border-color: var(--accent); background: var(--bg); }
+.role-icon { font-size: 28px; }
+.role-title { display: block; font-weight: 600; font-size: 16px; }
+.role-desc { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+.back-link { color: var(--muted); text-decoration: none; }
+.back-link:hover { color: var(--text); text-decoration: underline; }
