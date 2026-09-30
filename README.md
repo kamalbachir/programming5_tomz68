@@ -51,15 +51,6 @@ own `/docs` on its port.
 6. Notification pushes `{"event": "seat_taken", "seat": "C7", ...}` over
    WebSocket to every connected client — customer and staff alike.
 
-### Sequence diagram
-
-![Sequence diagram: booking a seat](docs/sequence-diagram.svg)
-
-The `alt` box is the one decision that matters: if the seat is already taken,
-booking returns **409 Conflict** straight away; otherwise it saves the ticket
-and pushes a **WebSocket** event to every other connected client — that push
-is the "real-time communication" the course asks for. Source: `docs/sequence-diagram.svg`.
-
 ## Clients
 
 There are two kinds of client, on purpose: a CLI and a web page for each
